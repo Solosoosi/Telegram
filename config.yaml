@@ -1,0 +1,37 @@
+# =====================================================================
+#  Telegram Scraper - settings
+#  Edit this file (not the Python code) to change what gets collected.
+#  The collection period (start/end dates) is chosen on every run.
+# =====================================================================
+
+# Channels to collect from. One per line. Accepted forms:
+#   - "@channelname"                 public channel username
+#   - "https://t.me/channelname"     public channel link
+#   - "-1001234567890"               private channel ID (find it with: python scraper.py --list-channels)
+#   - "https://t.me/c/1234567890/5"  link to any message in a private channel you've joined
+channels:
+  - "@telegram"
+  - "https://t.me/durov"
+
+# Keywords to filter by. Leave the list empty ( keywords: [] ) to collect ALL messages.
+# Hebrew, Arabic, emoji etc. are all supported.
+keywords:
+  - update
+  - security
+
+keyword_options:
+  match: any             # any = message contains at least one keyword; all = must contain every keyword
+  case_sensitive: false  # false: "Bitcoin" also matches "bitcoin"
+  whole_word: false      # true: "art" will NOT match "start"
+  search_in_links: true  # also look for keywords inside the URLs in a message
+
+# Time zone used for the dates you type AND the timestamps in Excel.
+# "local" = this computer's time zone, or an IANA name like "Asia/Jerusalem", "Europe/London", "UTC".
+timezone: local
+
+# Folder for the Excel reports (relative to this file).
+output_folder: output
+
+live:
+  # While listening for new messages, the Excel file is updated this often (seconds).
+  save_every_seconds: 30
