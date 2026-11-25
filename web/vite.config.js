@@ -30,6 +30,17 @@ export default defineConfig({
     target: "es2020",
     chunkSizeWarningLimit: 2500,
   },
+  // Local private use: `npm start` serves the built app on this computer only (127.0.0.1).
+  preview: {
+    host: "127.0.0.1",
+    port: 8765,
+    strictPort: true, // fixed address, so a remembered login and settings are found again
+    headers: {
+      "Content-Security-Policy": `${CSP}; frame-ancestors 'none'`,
+      "X-Content-Type-Options": "nosniff",
+      "Referrer-Policy": "no-referrer",
+    },
+  },
   test: {
     environment: "node",
   },

@@ -10,14 +10,20 @@ There are two versions with the same features and the same Excel layout:
 |---|---|---|
 | How you use it | Open a website. Nothing to install | Run on your computer |
 | Interface | Graphical: buttons, filters, live view | Command line + `config.yaml` |
-| Hosting | Free on GitHub Pages | Your own machine |
+| Hosting | On your own computer (private), or GitHub Pages for testing | Your own machine |
 | Good for | Everyday use, any device | Long unattended runs, automation |
 
 ---
 
 # Web app
 
-**Live site:** https://solosoosi.github.io/Telegram/ (once GitHub Pages is enabled, see below).
+Two ways to open it:
+
+- **On your computer (private, recommended):** double-click `start-web.bat` (Windows) or run
+  `./start-web.sh` (macOS/Linux). See [Running it privately](#running-it-privately-on-your-computer).
+- **Online for testing:** https://solosoosi.github.io/Telegram/ (once GitHub Pages is enabled,
+  see below).
+
 Add `#demo` to the address to try it with sample data, no login needed.
 
 ## How it works
@@ -61,7 +67,29 @@ chosen each time.
 - Keep the page open while collecting: browsers pause background tabs, so live listening needs
   the tab to stay open. For collections that run for days, use the Python version.
 
-## Deploying to GitHub Pages (one time)
+## Running it privately on your computer
+
+1. Install **Node.js** once from <https://nodejs.org> (choose the LTS version).
+2. Double-click **`start-web.bat`** (Windows) or run **`./start-web.sh`** (macOS/Linux).
+   The first start takes a minute to install. After that it opens your browser at
+   **http://127.0.0.1:8765**.
+3. Keep the window open while you use the app. Close it, or press Ctrl+C, to stop.
+
+The app is served **only to this computer**. Other devices on your network can't open it, and
+it doesn't depend on GitHub. It still connects to Telegram, because that's where the messages
+come from. Always use the same address (`127.0.0.1:8765`): the browser keeps a remembered login
+and your settings separately for each address, so the GitHub Pages site and the local app don't
+share them.
+
+## Turning off the public test site
+
+When testing is done: GitHub → repository → **Settings → Pages** → **Unpublish site**
+(or set Source to *None*), and disable the workflow under **Actions → "Web app - test &
+deploy to GitHub Pages" → ⋯ → Disable workflow**. You can then also make the repository
+private (**Settings → General → Danger Zone → Change visibility**). The local app keeps
+working either way.
+
+## Deploying to GitHub Pages for testing (one time)
 
 1. On GitHub, open the repository → **Settings → Pages**.
 2. Under **Build and deployment → Source**, choose **GitHub Actions**.
@@ -75,7 +103,8 @@ The workflow (`.github/workflows/pages.yml`) runs the tests, builds the site and
 ```
 cd web
 npm install
-npm run dev      # local dev server
+npm start        # build + run privately at http://127.0.0.1:8765 (what start-web does)
+npm run dev      # dev server with live reload
 npm test         # unit tests
 npm run build    # production build in web/dist
 ```
