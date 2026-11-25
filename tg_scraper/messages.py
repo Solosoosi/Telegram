@@ -17,6 +17,7 @@ class ChannelInfo:
     title: str
     username: str  # "" for private channels/groups
     requested_as: str  # what the user wrote in config.yaml
+    last_id: int = 0  # newest message id seen; live polling asks for anything newer
 
     @property
     def source(self) -> str:

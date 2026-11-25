@@ -15,3 +15,7 @@ __pycache__/
 .venv/
 venv/
 .pytest_cache/
+
+# Web app
+web/node_modules/
+web/dist/

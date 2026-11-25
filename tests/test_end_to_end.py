@@ -63,12 +63,16 @@ class FakeClient:
         for m in HISTORY[entity.id]:
             yield m
 
+    async def get_messages(self, entity, min_id=0, limit=100):
+        return [m for m in HISTORY[entity.id] if m.id > min_id][:limit]
+
 
 def test_history_and_live(tmp_path):
     async def scenario():
         client = FakeClient()
         cfg = ScraperConfig(channels=["@alpha", str(utils.get_peer_id(PRIVATE)), "@missing"],
-                            keywords=["bitcoin"], timezone=TimeZone("UTC"), output_folder=tmp_path)
+                            keywords=["bitcoin"], timezone=TimeZone("UTC"), output_folder=tmp_path,
+                            poll_every_seconds=0.3)
         opts = RunOptions(start=NOW - timedelta(days=1), end=datetime.now(timezone.utc) + timedelta(seconds=1.5))
 
         async def push_live():
@@ -78,6 +82,8 @@ def test_history_and_live(tmp_path):
                 await h(FakeEvent(msg(111, 6, "live bitcoin news", timedelta(0)), pid))
                 await h(FakeEvent(msg(111, 7, "live but irrelevant", timedelta(0)), pid))
                 await h(FakeEvent(msg(111, 5, "bitcoin rally", timedelta(hours=1)), pid))  # duplicate
+            # Posted in a channel we haven't joined: no push event, only polling can find it.
+            HISTORY[222].insert(0, msg(222, 10, "bitcoin via polling", timedelta(0)))
 
         asyncio.get_running_loop().create_task(push_live())
         return await run(client, Credentials(1, "0" * 32, ""), cfg, opts, tmp_path / "sessions")
@@ -90,6 +96,7 @@ def test_history_and_live(tmp_path):
         ("Secret Ops", "bitcoin in private", "https://t.me/c/222/9", "History"),
         ("Alpha News", "bitcoin rally", "https://t.me/alpha/5", "History"),
         ("Alpha News", "live bitcoin news", "https://t.me/alpha/6", "Live"),
+        ("Secret Ops", "bitcoin via polling", "https://t.me/c/222/10", "Live"),
     ]
     summary = {r[0]: r[1] for r in wb["Summary"].iter_rows(values_only=True) if r[0]}
     assert summary["Channels not found"] == "@missing"

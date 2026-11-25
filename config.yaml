@@ -35,3 +35,6 @@ output_folder: output
 live:
   # While listening for new messages, the Excel file is updated this often (seconds).
   save_every_seconds: 30
+  # Channels you have joined deliver new messages instantly. Channels you haven't joined
+  # are checked this often (seconds, minimum 10).
+  poll_every_seconds: 30

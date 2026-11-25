@@ -65,6 +65,7 @@ class ScraperConfig:
     timezone: TimeZone = field(default_factory=TimeZone)
     output_folder: Path = Path("output")
     save_every_seconds: int = 30
+    poll_every_seconds: float = 30
 
 
 def _as_list(value, name: str) -> list[str]:
@@ -100,8 +101,9 @@ def load_config(path: Path) -> ScraperConfig:
 
     try:
         save_every = int(live.get("save_every_seconds", 30))
+        poll_every = float(live.get("poll_every_seconds", 30))
     except (TypeError, ValueError) as exc:
-        raise ConfigError("live.save_every_seconds must be a number.") from exc
+        raise ConfigError("live.save_every_seconds and live.poll_every_seconds must be numbers.") from exc
 
     return ScraperConfig(
         channels=_as_list(raw.get("channels"), "channels"),
@@ -113,6 +115,7 @@ def load_config(path: Path) -> ScraperConfig:
         timezone=TimeZone(str(raw.get("timezone") or "local")),
         output_folder=out,
         save_every_seconds=max(5, save_every),
+        poll_every_seconds=max(10.0, poll_every),
     )
 
 

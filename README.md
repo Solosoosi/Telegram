@@ -4,9 +4,85 @@ Collects messages (text and links) from Telegram channels you choose, filters th
 and saves them to an Excel report. It can collect **past messages (chat history)** and
 **new incoming messages (live)** in the same run.
 
-Built with Python + [Telethon](https://docs.telethon.dev) (the Telegram client API) + openpyxl.
+There are two versions with the same features and the same Excel layout:
+
+| | **Web app** (`web/`) | **Python script** (repository root) |
+|---|---|---|
+| How you use it | Open a website. Nothing to install | Run on your computer |
+| Interface | Graphical: buttons, filters, live view | Command line + `config.yaml` |
+| Hosting | Free on GitHub Pages | Your own machine |
+| Good for | Everyday use, any device | Long unattended runs, automation |
 
 ---
+
+# Web app
+
+**Live site:** https://solosoosi.github.io/Telegram/ (once GitHub Pages is enabled, see below).
+Add `#demo` to the address to try it with sample data, no login needed.
+
+## How it works
+
+The site is static: just HTML, CSS and JavaScript. When you log in, **your browser connects
+directly to Telegram's servers** over an encrypted WebSocket using [GramJS](https://gram.js.org)
+(the JavaScript version of Telethon). No server of ours ever sees your keys, your login or
+your messages. The Excel file is created in your browser too.
+
+## Using it
+
+1. **Log in.** Enter your api_id and api_hash from <https://my.telegram.org> (*API development
+   tools*) and your phone number, or click **Load credentials file** to use a `credentials.ini`
+   file. The same file works with the Python version, and **Save as file** creates one.
+   Then enter the code Telegram sends you, plus your 2-step-verification password if you have one.
+2. **Channels.** Type `@username`, a `t.me` link or a channel ID, or click **Browse my channels**
+   to pick from the channels and groups you've joined, including private ones.
+3. **Keywords.** Add as many as you like, choose **Any** or **All**, and switch on case-sensitive,
+   whole-words or search-inside-links matching if you need them. With no keywords, every
+   message is collected.
+4. **Period and method.** Pick *From* and *To* (or use the quick buttons), then choose
+   *History + Live*, *History* or *Live only*. With a *To* date in the future, the app keeps
+   listening for new messages until then.
+5. Click **Start collecting**. Results appear as they come in, with keyword highlights,
+   search, a channel filter and direct links. Click **Export Excel** at any time, including
+   while it is still listening.
+
+Your channels, keywords and options are remembered in your browser, but the dates are
+chosen each time.
+
+## Login security
+
+- **Default:** your login lasts only for the current browser tab and is gone when you close it.
+- **"Remember me on this device":** the login is saved on this device only, **encrypted with
+  AES-256** using a passphrase you choose (PBKDF2 with 310,000 iterations). Next time you
+  just enter the passphrase.
+- **Log out** ends the Telegram session and deletes anything saved on the device. You can
+  also end it from Telegram under *Settings → Devices*.
+- The site uses a strict Content-Security-Policy. It can only run its own code and can only
+  connect to Telegram's servers.
+- Keep the page open while collecting: browsers pause background tabs, so live listening needs
+  the tab to stay open. For collections that run for days, use the Python version.
+
+## Deploying to GitHub Pages (one time)
+
+1. On GitHub, open the repository → **Settings → Pages**.
+2. Under **Build and deployment → Source**, choose **GitHub Actions**.
+3. Run the workflow: **Actions → "Web app - test & deploy to GitHub Pages" → Run workflow**.
+   Later pushes that change `web/` on the default branch redeploy automatically.
+
+The workflow (`.github/workflows/pages.yml`) runs the tests, builds the site and publishes it.
+
+## Developing the web app
+
+```
+cd web
+npm install
+npm run dev      # local dev server
+npm test         # unit tests
+npm run build    # production build in web/dist
+```
+
+---
+
+# Python script
 
 ## 1. One-time setup
 
@@ -86,6 +162,10 @@ begins at 00:00 and the end date runs to 23:59:59). Times use the `timezone` set
 While listening live, the Excel file is updated every 30 seconds (configurable). Press **Ctrl+C**
 at any time to stop; everything collected so far is saved.
 
+Telegram delivers new messages instantly only for channels your account has **joined**. Other
+channels are checked every 30 seconds (`live.poll_every_seconds` in `config.yaml`), so nothing
+is missed either way.
+
 ## 4. The Excel report
 
 Files are saved to `output/telegram_<start>_to_<end>_<run time>.xlsx` and contain:
@@ -128,6 +208,7 @@ covers text and links only.
 
 ```
 pip install pytest
-python -m pytest tests
+python -m pytest tests          # Python version
+cd web && npm install && npm test   # web app
 ```
 The tests use a simulated Telegram client, so they don't need an account or network access.

@@ -152,6 +152,7 @@ async def collect_history(client: TelegramClient, channel: ChannelInfo, start_ut
     scanned = kept = 0
     try:
         async for msg in client.iter_messages(channel.entity, offset_date=end_utc):
+            channel.last_id = max(channel.last_id, msg.id)
             if msg.date < start_utc:
                 break
             if msg.date > end_utc:
@@ -171,25 +172,49 @@ async def collect_history(client: TelegramClient, channel: ChannelInfo, start_ut
     return kept
 
 
+def _report_live(rec: MessageRecord, channel: ChannelInfo, tz) -> None:
+    kw = f" [{', '.join(rec.matched_keywords)}]" if rec.matched_keywords else ""
+    print(f"[live] {tz.convert(rec.posted_at):%Y-%m-%d %H:%M:%S} {channel.title}{kw}: "
+          f"{rec.text[:70].replace(chr(10), ' ')}")
+
+
 def register_live_handler(client: TelegramClient, channels: list[ChannelInfo], start_utc: datetime,
                           end_utc: datetime, matcher: KeywordMatcher, store: ResultStore, tz) -> None:
+    """Instant updates. Telegram only pushes these for channels your account has joined."""
     by_peer = {c.peer_id: c for c in channels}
 
     async def on_new_message(event):
         try:
             channel = by_peer.get(event.chat_id)
             msg = event.message
-            if channel is None or not (start_utc <= msg.date <= end_utc):
+            if channel is None:
+                return
+            channel.last_id = max(channel.last_id, msg.id)
+            if not (start_utc <= msg.date <= end_utc):
                 return
             rec = build_record(msg, channel, matcher, "Live")
             if rec and store.add(rec):
-                kw = f" [{', '.join(rec.matched_keywords)}]" if rec.matched_keywords else ""
-                print(f"[live] {tz.convert(msg.date):%Y-%m-%d %H:%M:%S} {channel.title}{kw}: "
-                      f"{rec.text[:70].replace(chr(10), ' ')}")
+                _report_live(rec, channel, tz)
         except Exception as exc:  # never let one bad message stop the listener
             print(f"[!] Failed to process live message: {exc!r}")
 
     client.add_event_handler(on_new_message, events.NewMessage(chats=[c.entity for c in channels]))
+
+
+async def poll_new_messages(client: TelegramClient, channel: ChannelInfo, start_utc: datetime,
+                            end_utc: datetime, matcher: KeywordMatcher, store: ResultStore, tz) -> None:
+    """Fetch anything newer than the last seen message. Works for channels you haven't joined too."""
+    try:
+        msgs = await client.get_messages(channel.entity, min_id=channel.last_id, limit=100)
+    except (errors.RPCError, ValueError) as exc:
+        print(f"[!] Polling '{channel.title}' failed: {exc}")
+        return
+    for msg in sorted(msgs or [], key=lambda m: m.id):
+        channel.last_id = max(channel.last_id, msg.id)
+        if start_utc <= msg.date <= end_utc:
+            rec = build_record(msg, channel, matcher, "Live")
+            if rec and store.add(rec):
+                _report_live(rec, channel, tz)
 
 
 async def run(client: TelegramClient, creds: Credentials, cfg: ScraperConfig, opts: RunOptions,
@@ -249,12 +274,24 @@ async def run(client: TelegramClient, creds: Credentials, cfg: ScraperConfig, op
                     if store.dirty:
                         saver.save()
 
+            for channel in channels:  # live-only runs: start from the newest existing message
+                if not channel.last_id:
+                    try:
+                        latest = await client.get_messages(channel.entity, limit=1)
+                        channel.last_id = latest[0].id if latest else 0
+                    except (errors.RPCError, ValueError):
+                        pass
             saver.save()
             autosave_task = asyncio.create_task(autosave())
-            remaining = (end_utc - datetime.now(timezone.utc)).total_seconds()
             print(f"\n[*] Listening for new messages until {tz.convert(opts.end):%Y-%m-%d %H:%M} "
                   f"({tz.label}). Press Ctrl+C to stop - results are saved automatically.")
-            await asyncio.wait({client.disconnected}, timeout=max(0.0, remaining))
+            while not client.disconnected.done():
+                remaining = (end_utc - datetime.now(timezone.utc)).total_seconds()
+                if remaining <= 0:
+                    break
+                await asyncio.wait({client.disconnected}, timeout=min(cfg.poll_every_seconds, remaining))
+                for channel in channels:
+                    await poll_new_messages(client, channel, start_utc, end_utc, matcher, store, tz)
             print("[+] Live collection finished.")
     finally:
         if autosave_task:
